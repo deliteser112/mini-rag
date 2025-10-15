@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+venv/
+.envrc
+
+# model / data caches
+.cache/
+*.db
+faiss_index/
+embeddings.npy
+
+# system
+.DS_Store
+.vscode/
+.idea/
