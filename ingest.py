@@ -102,8 +102,3 @@ def load_and_prepare_corpus(
     chunks = chunk_documents(raw_docs, chunk_size, chunk_overlap)
     return chunks
 
-
-if __name__ == "__main__":
-    # 🔹 Example usage
-    corpus = load_and_prepare_corpus("data")
-    print(f"✅ Loaded {len(corpus)} chunks from raw docs")

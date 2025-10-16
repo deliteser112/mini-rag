@@ -6,26 +6,23 @@ import pickle
 import html
 from pathlib import Path
 from typing import List, Tuple, Dict, Any
-
 import streamlit as st
 from langchain.schema import Document
-
-# Import your project modules
 import ingest
-import store  # used to call build/load/search and optionally add_to_index
+import store  
 from llm import call_llm
 
-# -------------------------------
+
 # Logging
-# -------------------------------
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s"
 )
 
-# -------------------------------
+
 # Paths & Constants (auto-create)
-# -------------------------------
+
 RAW_DOCS_FOLDER = Path(os.getenv("RAW_DOCS_FOLDER", "data"))
 INDEX_DIR = RAW_DOCS_FOLDER / "faiss_index"
 CACHE_DIR = RAW_DOCS_FOLDER / ".cache_files"
@@ -37,9 +34,9 @@ CACHE_DIR.mkdir(parents=True, exist_ok=True)
 DEFAULT_TOP_K = 7
 DEFAULT_TEMPERATURE = 0.0
 
-# -------------------------------
+
 # Helper utilities
-# -------------------------------
+
 def file_md5(path: Path, chunk_size: int = 8192) -> str:
     h = hashlib.md5()
     with open(path, "rb") as f:
@@ -53,7 +50,7 @@ def file_md5(path: Path, chunk_size: int = 8192) -> str:
 
 def compute_chunks_checksum(chunks: List[Document]) -> str:
     h = hashlib.md5()
-    # sort deterministic by metadata source + content to keep order consistent
+    
     for doc in sorted(chunks, key=lambda d: (str(d.metadata.get("source", "")), d.page_content[:50])):
         h.update(doc.page_content.encode("utf-8"))
     return h.hexdigest()
@@ -65,7 +62,7 @@ def escape_and_highlight(text: str, query: str) -> str:
         return html.escape(text)
     escaped = html.escape(text)
     q_escaped = html.escape(query)
-    # Simple case-insensitive replace
+    
     try:
         import re
         pattern = re.compile(re.escape(q_escaped), re.IGNORECASE)
@@ -74,9 +71,8 @@ def escape_and_highlight(text: str, query: str) -> str:
         highlighted = escaped.replace(q_escaped, f"<mark>{q_escaped}</mark>")
     return highlighted
 
-# -------------------------------
-# Caching: per-file chunking
-# -------------------------------
+
+
 @st.cache_data(show_spinner=False, persist=True)
 def load_and_chunk_documents_incremental(folder_path: Path) -> List[Document]:
     """
@@ -86,7 +82,7 @@ def load_and_chunk_documents_incremental(folder_path: Path) -> List[Document]:
     supported_exts = set(ingest.LOADERS.keys())  # e.g. {".pdf", ".txt", ".docx", ...}
     all_chunks: List[Document] = []
 
-    # iterate deterministic order
+    
     for file_path in sorted(folder_path.iterdir()):
         if not file_path.is_file():
             continue
@@ -97,15 +93,15 @@ def load_and_chunk_documents_incremental(folder_path: Path) -> List[Document]:
         file_hash = file_md5(file_path)
         cache_file = CACHE_DIR / f".cache_{file_path.name}.pkl"
 
-        # Load from cache if available and unchanged
+        
         if cache_file.exists():
             try:
                 with open(cache_file, "rb") as f:
                     cached = pickle.load(f)
                 if isinstance(cached, dict) and cached.get("hash") == file_hash and "chunks" in cached:
-                    # cache hit
+                    
                     cached_chunks = cached["chunks"]
-                    # ensure metadata source exists
+                   
                     for d in cached_chunks:
                         if "source" not in d.metadata:
                             d.metadata["source"] = file_path.name
@@ -114,7 +110,7 @@ def load_and_chunk_documents_incremental(folder_path: Path) -> List[Document]:
             except Exception as e:
                 logging.warning(f"Failed to load cache for {file_path.name}: {e}")
 
-        # Cache miss -> load file using ingest.LOADERS to keep behavior consistent
+        
         loader_cls = ingest.LOADERS.get(ext)
         if loader_cls is None:
             logging.warning(f"No loader for extension {ext}, skipping {file_path.name}")
@@ -123,12 +119,12 @@ def load_and_chunk_documents_incremental(folder_path: Path) -> List[Document]:
         try:
             loader = loader_cls(str(file_path))
             file_docs = loader.load()
-            # Attach filename as source metadata
+            
             for d in file_docs:
                 d.metadata["source"] = file_path.name
-            # Chunk the file-documents
+            
             chunks = ingest.chunk_documents(file_docs)
-            # Save to cache
+            
             try:
                 with open(cache_file, "wb") as f:
                     pickle.dump({"hash": file_hash, "chunks": chunks}, f)
@@ -142,9 +138,9 @@ def load_and_chunk_documents_incremental(folder_path: Path) -> List[Document]:
     return all_chunks
 
 
-# -------------------------------
+
 # Load or (incrementally) build FAISS index
-# -------------------------------
+
 @st.cache_resource(show_spinner=False)
 def get_or_build_index(chunks: List[Document]):
     """
@@ -183,7 +179,7 @@ def get_or_build_index(chunks: List[Document]):
 
     # If here, checksum changed or no index → attempt incremental update if possible
     if INDEX_DIR.exists():
-        # load previous chunk hashes if available
+        
         prev_hashes = []
         if hashes_file.exists():
             try:
@@ -193,26 +189,26 @@ def get_or_build_index(chunks: List[Document]):
                 logging.warning(f"Could not load prev hashes: {e}")
                 prev_hashes = []
 
-        # compute hashes for current chunks
+        
         cur_hashes = []
         for d in chunks:
-            # hash of small prefix (or entire content)
+            
             cur_hashes.append(hashlib.md5(d.page_content.encode("utf-8")).hexdigest())
 
-        # determine which chunks are new
+       
         new_chunks = []
         for i, h in enumerate(cur_hashes):
             if h not in prev_hashes:
                 new_chunks.append(chunks[i])
 
-        # If store.add_to_index available and we have new chunks, try incremental add
+        
         add_fn = getattr(store, "add_to_index", None)
         if add_fn and new_chunks:
             try:
                 logging.info(f"Adding {len(new_chunks)} new chunks incrementally to existing index...")
                 index = store.load_index(str(INDEX_DIR))
                 add_fn(index, new_chunks)
-                # After adding, save index and update checksum/hashes
+                
                 store.save_index(index, str(INDEX_DIR))
                 with open(checksum_file, "w") as f:
                     f.write(current_checksum)
@@ -222,14 +218,14 @@ def get_or_build_index(chunks: List[Document]):
             except Exception as e:
                 logging.warning(f"Incremental add failed: {e} — falling back to rebuild.")
 
-    # Fallback: build entire index
+   
     if not chunks:
         logging.warning("No chunks available to build index.")
         return None
 
     logging.info("Building FAISS index (full rebuild)...")
     index = store.build_faiss_index(chunks)
-    # Save index, checksum, and chunk hashes
+    
     try:
         store.save_index(index, str(INDEX_DIR))
         with open(checksum_file, "w") as f:
@@ -243,9 +239,8 @@ def get_or_build_index(chunks: List[Document]):
     return index
 
 
-# -------------------------------
+
 # Streamlit UI
-# -------------------------------
 st.set_page_config(page_title="Mini RAG + Groq LLM", layout="wide")
 st.title("📚 Mini RAG + Groq LLM Demo")
 
@@ -270,8 +265,7 @@ if uploaded_files:
         with open(dest, "wb") as out:
             out.write(f.read())
     st.success("Saved uploaded files. They will be processed and indexed automatically.")
-    # Clear any cached load function so updated files are seen (st.cache_data persists by key)
-    # A simple way: call `load_and_chunk_documents_incremental.clear()` to clear the cache
+
     try:
         load_and_chunk_documents_incremental.clear()
     except Exception:
@@ -290,9 +284,8 @@ else:
 # Force rebuild handling
 if rebuild_index_button:
     try:
-        # Clear index cache resource and underlying saved files
+       
         get_or_build_index.clear()
-        # Remove saved checksum/hashes so next build will be full
         checksum_file = INDEX_DIR / "chunks.checksum"
         hashes_file = INDEX_DIR / "chunks_hashes.pkl"
         if checksum_file.exists():
@@ -316,7 +309,7 @@ st.markdown("### Ask a question")
 query = st.text_input("Enter your question", key="query_input")
 
 if st.button("Get Answer") and query:
-    # Search index
+    
     try:
         with st.spinner("Retrieving top documents..."):
             results: List[Tuple[Document, float]] = store.search_index(query, index, top_k=top_k)
@@ -326,7 +319,7 @@ if st.button("Get Answer") and query:
 
     retrieved_for_llm: List[Tuple[str, Dict[str, Any]]] = []
     for doc, score in results:
-        # Ensure metadata is present
+
         if "source" not in doc.metadata:
             doc.metadata["source"] = doc.metadata.get("source", "unknown")
         retrieved_for_llm.append((doc.page_content, doc.metadata))

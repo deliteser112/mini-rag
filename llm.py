@@ -5,22 +5,22 @@ import logging
 from typing import List, Dict, Any, Tuple
 from groq import Groq
 
-# -------------------------------
+
 # Logging
-# -------------------------------
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s"
 )
 
-# -------------------------------
+
 # Default model
-# -------------------------------
+
 DEFAULT_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
-# -------------------------------
+
 # Groq client singleton
-# -------------------------------
+
 _groq_client: Groq | None = None
 
 def get_groq_client() -> Groq:
@@ -33,9 +33,9 @@ def get_groq_client() -> Groq:
         logging.info("✅ Groq client initialized.")
     return _groq_client
 
-# -------------------------------
+
 # Build messages for Groq chat
-# -------------------------------
+
 def build_messages(
     query: str,
     retrieved: List[Tuple[str, Dict[str, Any]]],
@@ -60,9 +60,9 @@ def build_messages(
     messages.append({"role": "user", "content": query})
     return messages
 
-# -------------------------------
+
 # Call Groq LLM
-# -------------------------------
+
 def call_llm(
     query: str,
     retrieved: List[Tuple[str, Dict[str, Any]]],
@@ -97,9 +97,9 @@ def call_llm(
     logging.info("✅ Response received from Groq API.")
     return result
 
-# -------------------------------
+
 # Quick test
-# -------------------------------
+
 if __name__ == "__main__":
     # Example test (replace with FAISS retrieval)
     dummy_retrieved = [

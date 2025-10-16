@@ -7,31 +7,31 @@ from typing import List, Tuple, Optional, Any
 
 from langchain.schema import Document
 
-# Use the langchain-huggingface package's embeddings wrapper
+
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 
-# -------------------------------
+
 # Logging
-# -------------------------------
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s"
 )
 
-# -------------------------------
+
 # Defaults / constants
-# -------------------------------
+
 DEFAULT_INDEX_DIR = Path("data") / "faiss_index"
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
 
-# internal cached embedder
+
 _EMBEDDER: Optional[HuggingFaceEmbeddings] = None
 
 
-# -------------------------------
+
 # Helper: embedder factory (cached)
-# -------------------------------
+
 def get_embedder() -> HuggingFaceEmbeddings:
     """
     Lazy-create and return a HuggingFaceEmbeddings instance.
@@ -44,9 +44,9 @@ def get_embedder() -> HuggingFaceEmbeddings:
     return _EMBEDDER
 
 
-# -------------------------------
+
 # Build / Save / Load
-# -------------------------------
+
 def build_faiss_index(docs: List[Document]) -> FAISS:
     """
     Build a FAISS vectorstore from a list of LangChain Document objects.
@@ -68,7 +68,7 @@ def save_index(index: FAISS, path: str | Path = DEFAULT_INDEX_DIR) -> None:
     path = Path(path)
     path.mkdir(parents=True, exist_ok=True)
     logging.info(f"Saving FAISS index to {str(path)} ...")
-    # LangChain FAISS vectorstore exposes save_local
+    
     index.save_local(str(path))
     logging.info("💾 Index saved.")
 
@@ -88,9 +88,9 @@ def load_index(path: str | Path = DEFAULT_INDEX_DIR) -> FAISS:
     return index
 
 
-# -------------------------------
+
 # Incremental add
-# -------------------------------
+
 def add_to_index(index: FAISS, docs: List[Document], save_path: Optional[str | Path] = None) -> FAISS:
     """
     Incrementally add documents to an existing FAISS vectorstore.
@@ -105,7 +105,7 @@ def add_to_index(index: FAISS, docs: List[Document], save_path: Optional[str | P
 
     logging.info(f"Adding {len(docs)} documents to FAISS index...")
     try:
-        # `add_documents` is the LangChain vectorstore API for adding new docs
+        
         index.add_documents(docs)
         logging.info("✅ Added documents to index.")
     except Exception as e:
@@ -121,9 +121,9 @@ def add_to_index(index: FAISS, docs: List[Document], save_path: Optional[str | P
     return index
 
 
-# -------------------------------
+
 # Querying
-# -------------------------------
+
 def search_index(query: str, index: FAISS, top_k: int = 3) -> List[Tuple[Document, float]]:
     """
     Search the FAISS index for the most relevant chunks.
