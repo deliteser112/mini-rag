@@ -34,7 +34,7 @@ RAW_DOCS_FOLDER.mkdir(parents=True, exist_ok=True)
 INDEX_DIR.mkdir(parents=True, exist_ok=True)
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
-DEFAULT_TOP_K = 3
+DEFAULT_TOP_K = 7
 DEFAULT_TEMPERATURE = 0.0
 
 # -------------------------------
