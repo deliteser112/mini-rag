@@ -141,18 +141,3 @@ def search_index(query: str, index: FAISS, top_k: int = 3) -> List[Tuple[Documen
         logging.error(f"Error while searching index: {e}")
         raise
 
-
-# -------------------------------
-# Small CLI example
-# -------------------------------
-if __name__ == "__main__":
-    from ingest import load_and_prepare_corpus
-
-    docs = load_and_prepare_corpus("data")
-    idx = build_faiss_index(docs)
-    save_index(idx, DEFAULT_INDEX_DIR)
-
-    results = search_index("What is the main topic?", idx)
-    for doc, score in results:
-        print(f"Score: {score:.3f} | Source: {doc.metadata.get('source')}")
-        print(doc.page_content[:200], "\n---\n")
