@@ -9,6 +9,8 @@ A minimal Retrieval-Augmented Generation (RAG) demo using:
 
   <img width="1411" height="797" alt="image" src="https://github.com/user-attachments/assets/d510195f-16a5-48bf-bf48-8eefdc5ee01b" />
 
+  <img width="1391" height="807" alt="image" src="https://github.com/user-attachments/assets/07e245f6-d60d-494a-9605-c487241cda79" />
+
 ## Installation
 
 ```bash
