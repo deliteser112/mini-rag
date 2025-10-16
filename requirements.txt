@@ -12,3 +12,4 @@ markdown
 tqdm
 rich
 groq
+streamlit
