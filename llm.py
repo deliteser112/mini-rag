@@ -41,6 +41,11 @@ def build_messages(
     retrieved: List[Tuple[str, Dict[str, Any]]],
     system_prompt: str = "You are a helpful assistant. Use the context passages to answer."
 ) -> List[Dict[str, str]]:
+    """
+    Converts retrieved chunks + user query into Groq chat messages.
+    
+    retrieved: List of tuples (chunk_text, metadata)
+    """
     messages = [{"role": "system", "content": system_prompt}]
     
     if retrieved:
@@ -64,18 +69,19 @@ def call_llm(
     model: str = DEFAULT_MODEL,
     temperature: float = 0.0
 ) -> Dict[str, Any]:
+    """
+    Sends the query + retrieved context to Groq chat API.
+    Returns dict with 'answer', 'raw', 'usage', etc.
+    """
     client = get_groq_client()
     messages = build_messages(query, retrieved)
 
-    # Prepare documents payload (optional)
-    documents_payload = [{"text": text, "metadata": meta} for text, meta in retrieved]
-
     logging.info("Sending request to Groq API...")
+    # Only pass messages + model + temperature (no documents, no enable_citations)
     resp = client.chat.completions.create(
         messages=messages,
         model=model,
-        documents=documents_payload,
-        temperature=temperature  # removed enable_citations
+        temperature=temperature
     )
 
     choice = resp.choices[0]
@@ -95,6 +101,7 @@ def call_llm(
 # Quick test
 # -------------------------------
 if __name__ == "__main__":
+    # Example test (replace with FAISS retrieval)
     dummy_retrieved = [
         ("Transformers are neural networks based on self-attention.", {"source": "GPT-2.pdf", "chunk": 0}),
         ("BERT uses bidirectional encoding for NLP tasks.", {"source": "BERT.pdf", "chunk": 1})
