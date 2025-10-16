@@ -1,11 +1,11 @@
-# mini_rag/store.py
+
 
 import os
 import pickle
 import logging
 from typing import List, Tuple
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
-from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.schema import Document
 
 # --- Logging ---
@@ -19,9 +19,6 @@ INDEX_PATH = "data/faiss_index"
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 
-# ------------------------------------------------------------
-# 1️⃣ Build FAISS index
-# ------------------------------------------------------------
 def build_faiss_index(docs: List[Document]) -> FAISS:
     """
     Builds a FAISS index from LangChain Document chunks.
@@ -35,10 +32,6 @@ def build_faiss_index(docs: List[Document]) -> FAISS:
     logging.info("✅ FAISS index built successfully.")
     return vectorstore
 
-
-# ------------------------------------------------------------
-# 2️⃣ Save / Load index
-# ------------------------------------------------------------
 def save_index(index: FAISS, path: str = INDEX_PATH):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     index.save_local(path)
@@ -53,10 +46,6 @@ def load_index(path: str = INDEX_PATH) -> FAISS:
     logging.info(f"📂 Loaded FAISS index from {path}")
     return index
 
-
-# ------------------------------------------------------------
-# 3️⃣ Query index
-# ------------------------------------------------------------
 def search_index(query: str, index: FAISS, top_k: int = 3) -> List[Tuple[Document, float]]:
     """
     Searches the FAISS index for relevant chunks.
@@ -66,10 +55,6 @@ def search_index(query: str, index: FAISS, top_k: int = 3) -> List[Tuple[Documen
     logging.info(f"🔍 Retrieved {len(results)} matches for query: {query[:50]}...")
     return results
 
-
-# ------------------------------------------------------------
-# 🔹 Example usage
-# ------------------------------------------------------------
 if __name__ == "__main__":
     from ingest import load_and_prepare_corpus
 
