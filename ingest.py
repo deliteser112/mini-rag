@@ -30,7 +30,7 @@ LOADERS: Dict[str, Callable[[str], object]] = {
 }
 
 
-def load_documents(folder_path: str = "data/raw") -> List[Document]:
+def load_documents(folder_path: str = "data") -> List[Document]:
 
     docs: List[Document] = []
 
@@ -86,7 +86,7 @@ def chunk_documents(
 
 
 def load_and_prepare_corpus(
-    folder_path: str = "data/raw",
+    folder_path: str = "data",
     chunk_size: int = 1000,
     chunk_overlap: int = 100
 ) -> List[Document]:
