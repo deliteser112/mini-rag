@@ -365,10 +365,13 @@ if st.button("Get Answer") and query:
     # Display LLM answer
     st.subheader("📝 LLM Answer")
     if answer:
-        # show code/text area for easy copying
+        # Plain text display first
+        st.write(answer)
+        # Then a copyable text area for convenience
         st.text_area("Answer (copyable)", value=answer, height=200)
     else:
         st.info("No answer returned from the LLM.")
+
 
 # Footer
 st.markdown("---")
