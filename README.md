@@ -10,7 +10,7 @@ A minimal Retrieval-Augmented Generation (RAG) demo using:
 ## Installation
 
 ```bash
-git clone https://github.com/AmirhosseinBZRG/mini_rag.git
+git clone https://github.com/deliteser112/mini_rag.git
 cd mini_rag
 python -m venv .venv
 source .venv/bin/activate
