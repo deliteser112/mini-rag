@@ -1,61 +1,89 @@
-import numpy as np
-import faiss
+# mini_rag/store.py
+
 import os
-import json
-from sentence_transformers import SentenceTransformer
-from typing import List, Dict
+import pickle
+import logging
+from typing import List, Tuple
+from langchain_community.vectorstores import FAISS
+from langchain.embeddings import HuggingFaceEmbeddings
+from langchain.schema import Document
 
-EMBED_MODEL_NAME = "all-MiniLM-L6-v2"
+# --- Logging ---
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
 
-class VectorStore:
-    def __init__(self, dim: int = None, index_path: str = "faiss_index/index.faiss", meta_path: str = "faiss_index/metadata.json"):
-        self.index_path = index_path
-        self.meta_path = meta_path
-        self.emb_model = SentenceTransformer(EMBED_MODEL_NAME)
-        self.index = None
-        self.metadata = []
-        if os.path.exists(index_path) and os.path.exists(meta_path):
-            self._load()
-        else:
-            self.index = None
-            self.dim = None
+# --- Constants ---
+INDEX_PATH = "data/faiss_index"
+EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
-    def _save(self):
-        os.makedirs(os.path.dirname(self.index_path), exist_ok=True)
-        faiss.write_index(self.index, self.index_path)
-        with open(self.meta_path, "w", encoding="utf-8") as f:
-            json.dump(self.metadata, f, ensure_ascii=False, indent=2)
 
-    def _load(self):
-        self.index = faiss.read_index(self.index_path)
-        with open(self.meta_path, "r", encoding="utf-8") as f:
-            self.metadata = json.load(f)
-        self.dim = self.index.d
+# ------------------------------------------------------------
+# 1️⃣ Build FAISS index
+# ------------------------------------------------------------
+def build_faiss_index(docs: List[Document]) -> FAISS:
+    """
+    Builds a FAISS index from LangChain Document chunks.
+    """
+    if not docs:
+        raise ValueError("No documents provided to build index.")
+    
+    logging.info(f"Building FAISS index from {len(docs)} chunks...")
+    embedder = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+    vectorstore = FAISS.from_documents(docs, embedder)
+    logging.info("✅ FAISS index built successfully.")
+    return vectorstore
 
-    def embed_texts(self, texts: List[str]):
-        return self.emb_model.encode(texts, show_progress_bar=False, convert_to_numpy=True)
 
-    def add_documents(self, docs: List[Dict]):
-        texts = [d["text"] for d in docs]
-        embeddings = self.embed_texts(texts).astype("float32")
-        n, d = embeddings.shape
-        if self.index is None:
-            self.dim = d
-            index = faiss.IndexFlatIP(self.dim)
-            self.index = index
-        faiss.normalize_L2(embeddings)
-        for dmeta in docs:
-            self.metadata.append({"id": dmeta["id"], **(dmeta.get("metadata") or {})})
-        self.index.add(embeddings)
-        self._save()
+# ------------------------------------------------------------
+# 2️⃣ Save / Load index
+# ------------------------------------------------------------
+def save_index(index: FAISS, path: str = INDEX_PATH):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    index.save_local(path)
+    logging.info(f"💾 Index saved to {path}")
 
-    def search(self, query: str, top_k: int = 5):
-        q_emb = self.embed_texts([query]).astype("float32")
-        faiss.normalize_L2(q_emb)
-        D, I = self.index.search(q_emb, top_k)
-        results = []
-        for score, idx in zip(D[0], I[0]):
-            if idx < 0 or idx >= len(self.metadata):
-                continue
-            results.append({"score": float(score), "metadata": self.metadata[idx]})
-        return results
+
+def load_index(path: str = INDEX_PATH) -> FAISS:
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"No FAISS index found at {path}")
+    embedder = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+    index = FAISS.load_local(path, embedder, allow_dangerous_deserialization=True)
+    logging.info(f"📂 Loaded FAISS index from {path}")
+    return index
+
+
+# ------------------------------------------------------------
+# 3️⃣ Query index
+# ------------------------------------------------------------
+def search_index(query: str, index: FAISS, top_k: int = 3) -> List[Tuple[Document, float]]:
+    """
+    Searches the FAISS index for relevant chunks.
+    Returns a list of (Document, similarity_score).
+    """
+    results = index.similarity_search_with_score(query, k=top_k)
+    logging.info(f"🔍 Retrieved {len(results)} matches for query: {query[:50]}...")
+    return results
+
+
+# ------------------------------------------------------------
+# 🔹 Example usage
+# ------------------------------------------------------------
+if __name__ == "__main__":
+    from ingest import load_and_prepare_corpus
+
+    # Step 1: Load + chunk docs
+    docs = load_and_prepare_corpus("data")
+
+    # Step 2: Build FAISS index
+    index = build_faiss_index(docs)
+
+    # Step 3: Save
+    save_index(index)
+
+    # Step 4: Search
+    results = search_index("What is the main topic?", index)
+    for doc, score in results:
+        print(f"Score: {score:.3f} | Source: {doc.metadata.get('source')}")
+        print(doc.page_content[:200], "\n---\n")

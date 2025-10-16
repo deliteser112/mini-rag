@@ -105,5 +105,5 @@ def load_and_prepare_corpus(
 
 if __name__ == "__main__":
     # 🔹 Example usage
-    corpus = load_and_prepare_corpus("data/raw")
+    corpus = load_and_prepare_corpus("data")
     print(f"✅ Loaded {len(corpus)} chunks from raw docs")
