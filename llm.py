@@ -1,21 +1,27 @@
 # llm.py
 
 import os
+import logging
 from typing import List, Dict, Any, Tuple
 from groq import Groq
-import logging
 
-# Configure logging
+# -------------------------------
+# Logging
+# -------------------------------
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s"
 )
 
-# Default model — you might make this configurable via config.py or environment
-DEFAULT_MODEL = "llama-3.3-70b-versatile"
+# -------------------------------
+# Default model
+# -------------------------------
+DEFAULT_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
-# Initialize client once
-_groq_client = None
-
+# -------------------------------
+# Groq client singleton
+# -------------------------------
+_groq_client: Groq | None = None
 
 def get_groq_client() -> Groq:
     global _groq_client
@@ -24,64 +30,57 @@ def get_groq_client() -> Groq:
         if not api_key:
             raise ValueError("GROQ_API_KEY environment variable not set")
         _groq_client = Groq(api_key=api_key)
+        logging.info("✅ Groq client initialized.")
     return _groq_client
 
 
+# -------------------------------
+# Build messages for Groq chat
+# -------------------------------
 def build_messages(
     query: str,
     retrieved: List[Tuple[str, Dict[str, Any]]],
-    system_prompt: str = "You are a helpful assistant. Use provided context passages to answer."
+    system_prompt: str = "You are a helpful assistant. Use the context passages to answer."
 ) -> List[Dict[str, str]]:
     """
-    Build a list of message dicts for Groq chat completion.
-    retrieved: list of tuples (chunk_text, metadata)
+    Converts retrieved chunks + user query into Groq chat messages.
+    
+    retrieved: List of tuples (chunk_text, metadata)
     """
-    messages = []
-    messages.append({"role": "system", "content": system_prompt})
+    messages = [{"role": "system", "content": system_prompt}]
     
-    # Add passages as “context” message
-    # You can combine them into one message or multiple messages
-    context_lines = []
-    for idx, (text, meta) in enumerate(retrieved):
-        src = meta.get("source", "unknown")
-        chunk_id = meta.get("chunk", None)
-        context_lines.append(f"[{idx}] (from {src} chunk {chunk_id}): {text}")
-    context_block = "\n\n".join(context_lines)
-    messages.append({
-        "role": "system",
-        "content": f"Here are some reference passages:\n{context_block}"
-    })
+    if retrieved:
+        context_lines = []
+        for idx, (text, meta) in enumerate(retrieved):
+            src = meta.get("source", "unknown")
+            chunk_id = meta.get("chunk", "?")
+            context_lines.append(f"[{idx}] (from {src} chunk {chunk_id}): {text}")
+        context_block = "\n\n".join(context_lines)
+        messages.append({"role": "system", "content": f"Reference passages:\n{context_block}"})
     
-    # Final user message
     messages.append({"role": "user", "content": query})
     return messages
 
 
+# -------------------------------
+# Call Groq LLM
+# -------------------------------
 def call_llm(
     query: str,
     retrieved: List[Tuple[str, Dict[str, Any]]],
-    top_k: int = 3,
     model: str = DEFAULT_MODEL,
     temperature: float = 0.0
 ) -> Dict[str, Any]:
     """
-    Call Groq chat completion API with the query + retrieved context.
-    Returns dict with keys: "answer", "choices", "usage", etc.
+    Sends the query + retrieved context to Groq chat API.
+    Returns dict with 'answer', 'raw', 'usage', etc.
     """
     client = get_groq_client()
-    # Build messages
     messages = build_messages(query, retrieved)
-    
-    # Also build the `documents` payload Groq expects for context
-    # Each document can be dict with text + metadata
-    documents_payload = []
-    for (text, meta) in retrieved:
-        doc = {
-            "text": text,
-            "metadata": meta
-        }
-        documents_payload.append(doc)
-    
+
+    # Prepare documents payload (optional, enables citations)
+    documents_payload = [{"text": text, "metadata": meta} for text, meta in retrieved]
+
     logging.info("Sending request to Groq API...")
     resp = client.chat.completions.create(
         messages=messages,
@@ -90,14 +89,31 @@ def call_llm(
         enable_citations=True,
         temperature=temperature
     )
+
     # Extract first choice
     choice = resp.choices[0]
-    content = choice.message.content
-    # You might also parse citations etc.
+    answer = choice.message.content
+
     result = {
-        "answer": content,
+        "answer": answer,
         "raw": resp,
-        "usage": resp.usage if hasattr(resp, "usage") else None,
+        "usage": getattr(resp, "usage", None),
         "choice": choice
     }
+
+    logging.info("✅ Response received from Groq API.")
     return result
+
+
+# -------------------------------
+# Quick test
+# -------------------------------
+if __name__ == "__main__":
+    # Example test (replace with FAISS retrieval)
+    dummy_retrieved = [
+        ("Transformers are neural networks based on self-attention.", {"source": "GPT-2.pdf", "chunk": 0}),
+        ("BERT uses bidirectional encoding for NLP tasks.", {"source": "BERT.pdf", "chunk": 1})
+    ]
+    query = "Explain the transformer architecture."
+    response = call_llm(query, dummy_retrieved)
+    print("Answer:", response["answer"])
