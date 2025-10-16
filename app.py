@@ -23,7 +23,7 @@ logging.basicConfig(
 # -------------------------------
 INDEX_PATH = "data/faiss_index"
 TOP_K = 3  # number of retrieved chunks per query
-RAW_DOCS_FOLDER = "data/raw"
+RAW_DOCS_FOLDER = "data"
 
 # -------------------------------
 # Streamlit caching
