@@ -34,9 +34,6 @@ def get_groq_client() -> Groq:
     return _groq_client
 
 
-# -------------------------------
-# Build messages for Groq chat
-# -------------------------------
 def build_messages(
     query: str,
     retrieved: List[Tuple[str, Dict[str, Any]]],
