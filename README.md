@@ -5,7 +5,9 @@ A minimal Retrieval-Augmented Generation (RAG) demo using:
 - **Streamlit** for the web interface  
 - **FAISS** for vector search  
 - **LangChain** for document chunking and embeddings  
-- **Groq LLM** as the backend language model  
+- **Groq LLM** as the backend language model
+
+  <img width="1411" height="797" alt="image" src="https://github.com/user-attachments/assets/d510195f-16a5-48bf-bf48-8eefdc5ee01b" />
 
 ## Installation
 
